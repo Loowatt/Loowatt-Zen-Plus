@@ -15,8 +15,6 @@
 #include <string.h>
 #include "Sodaq_wdt.h"
 
-#define MQTT_MAX_PACKET_SIZE 1024
-
 typedef struct
 {
   boolean isValid;
@@ -215,17 +213,15 @@ char mqttBroker[] = "industrial.api.ubidots.com";
 WiFiClient wifi;
 PubSubClient client(wifi);
 
-#define MQTT_MAX_PACKET_SIZE 1024
-
-#define MQTT_FILM_LEFT_LABEL "FilmLeftCount"
-#define MQTT_PERCENTAGE_LABEL "Percentage Left"
-#define MQTT_STATE_LABEL "State"
-#define MQTT_JAM_LABEL "Jam"
+#define MQTT_FILM_LEFT_LABEL "fil"
+#define MQTT_PERCENTAGE_LABEL "per"
+#define MQTT_STATE_LABEL "sta"
+#define MQTT_JAM_LABEL "jam"
 #define MQTT_REFILL_LABEL "Refill"
-#define MQTT_LT_JAM_LABEL "Jam"
-#define MQTT_LT_SERVICE_LABEL "Service"
-#define MQTT_LT_FILM_LABEL "Film"
-#define MQTT_LT_FLUSHES_LABEL "Flushes"
+#define MQTT_LT_JAM_LABEL "jam"
+#define MQTT_LT_SERVICE_LABEL "srv"
+#define MQTT_LT_FILM_LABEL "fil"
+#define MQTT_LT_FLUSHES_LABEL "flu"
 
 #define MQTT_toilet_type "toilet"  //change to toilet
 #define MQTT_sealing_unit "su" //change to SU
@@ -304,10 +300,10 @@ Task lcdUpdateTask(20, TASK_FOREVER, &lcdUpdate);
 //Task checkerTask(10000, TASK_FOREVER, &auto_check);
 
 
-Task DisconnectionTask(600000, TASK_FOREVER, &disconnect);
-Task ReconnectionTask(30000, TASK_FOREVER, &reconnect);  //300000 - 5 mins
-Task SendingDataTask(60000, TASK_FOREVER, &sent_data);   //600000 - 10 mins
-Task SendingLTDataTask(3600000, TASK_FOREVER, &lifetime_data); //3600000 - 60 mins
+Task DisconnectionTask(7200000, TASK_FOREVER, &disconnect);     // 7200000 - 2  hours 
+Task ReconnectionTask(300000, TASK_FOREVER, &reconnect);        //600000 -   10 mins  //  5min -  300000
+Task SendingDataTask(60000, TASK_FOREVER, &sent_data);          //600000 -   10 mins  //  1min -  60000
+Task SendingLTDataTask(120000, TASK_FOREVER, &lifetime_data);   //3600000 -  1  hour  //  2min -  120000
 
 
 
@@ -346,7 +342,7 @@ void BluetoothAction()
 
       
 
-    BLE.setLocalName("WiFi Setup");
+    BLE.setLocalName(MQTT_toilet_type);
     BLE.setAdvertisedService(BLEWifi);
     BLEWifi.addCharacteristic(ssidCharacteristic);
     BLEWifi.addCharacteristic(passwordCharacteristic);

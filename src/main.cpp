@@ -167,9 +167,9 @@ void flushCharacteristicWritten(BLEDevice central, BLECharacteristic characteris
 
 #define SEL_PRESS 3000
 
-#define WIFISSID "Loowatt1234"  //SKYIMQXN
-#define PASSWORD "Loowatt1234"  //Pm622PsNgdxD
-#define TOKEN "BBFF-qte6ng9nuKC7IVLurLoULJvm3nqQ44"
+#define WIFISSID "Loowatt123"  //SKYIMQXN
+#define PASSWORD "Loowatt123"  //Pm622PsNgdxD
+#define TOKEN "BBFF-wmfg8rMZ0ER962RBOGmJpCdTWB75l1"
 
 const char * WifiSSID = WIFISSID;
 const char * WifiPass = PASSWORD;
@@ -198,6 +198,8 @@ Toilet 9- BBFF-pDmMmH8I7KE1pxOeWlGgNK2W9UHQIR
 Test Unit 123 - BBFF-aBsNfySRXeRJICKo4TXf6WjDRcjJ4j
 
 Test Unit 125 - BBFF-RqTIKigU6wwypXiHpuLULbbMrcVVmG
+
+Zen Demo Unit - BBFF-wmfg8rMZ0ER962RBOGmJpCdTWB75l1
 */
 
 
@@ -223,8 +225,8 @@ PubSubClient client(wifi);
 #define MQTT_LT_FILM_LABEL "fil"
 #define MQTT_LT_FLUSHES_LABEL "flu"
 
-#define MQTT_toilet_type "toilet"  //change to toilet
-#define MQTT_sealing_unit "su" //change to SU
+#define MQTT_toilet_type "demo"  //change to toilet
+#define MQTT_sealing_unit "s" //change to SU
 
 Button btn_up(BTN_UP);
 Button btn_down(BTN_DOWN);
@@ -302,8 +304,8 @@ Task lcdUpdateTask(20, TASK_FOREVER, &lcdUpdate);
 
 Task DisconnectionTask(7200000, TASK_FOREVER, &disconnect);     // 7200000 - 2  hours 
 Task ReconnectionTask(300000, TASK_FOREVER, &reconnect);        //600000 -   10 mins  //  5min -  300000
-Task SendingDataTask(60000, TASK_FOREVER, &sent_data);          //600000 -   10 mins  //  1min -  60000
-Task SendingLTDataTask(120000, TASK_FOREVER, &lifetime_data);   //3600000 -  1  hour  //  2min -  120000
+Task SendingDataTask(600000, TASK_FOREVER, &sent_data);          //600000 -   10 mins  //  1min -  60000
+Task SendingLTDataTask(3600000, TASK_FOREVER, &lifetime_data);   //3600000 -  1  hour  //  2min -  120000
 
 
 

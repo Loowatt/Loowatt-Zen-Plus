@@ -68,6 +68,18 @@ void backendWriteByte(T_ADDR ADDR, byte REG)
   Serial.println(Wire.endTransmission(true), DEC);
 }
 
+void backendWriteTwoBytes(T_ADDR ADDR, T_TwoBytesData REG)
+{
+  Serial.println("->");
+  Wire.beginTransmission(SLAVE_ADDRESS);
+  Wire.write(ADDR);
+  Serial.println(Wire.endTransmission(true), DEC);
+  Wire.beginTransmission(SLAVE_ADDRESS);
+  Wire.write(REG.s_twobytes.byte_0);
+  Wire.write(REG.s_twobytes.byte_1);
+  Serial.println(Wire.endTransmission(true), DEC);
+}
+
 void backendWriteFourBytes(T_ADDR ADDR, T_FourBytesData_Signed REG)
 {
   Serial.println("->");

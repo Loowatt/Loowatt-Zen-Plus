@@ -27,18 +27,9 @@
 #define LT_BLOCK_ADDR  0x12         //R 2
 #define LT_SER_ADDR 0x13            //R 2
 
-
-/*
-
-/////BLE DATA/////
-
-#define MAX_FILM_COUNT_ADDR       0x14 //W 4
-#define ACTUAL_FILM_LENGTH_ADDR   0x15 //W 4
-#define USABLE_FILM_LENGTH_ADDR   0x16 //W 4
-
-
-
-*/
+#define ACTUAL_FILM_ADDR 0x14       //R-W-2
+#define PPR_MM_ADDR 0x15            //R-W-2
+#define JAM_RPM_ADDR 0x16           //R-W-2
 
 typedef enum
 {
@@ -70,6 +61,9 @@ typedef enum
   T_LT_FILM = LT_FILM_USED_ADDR,
   T_LT_BLOCK = LT_BLOCK_ADDR,
   T_LT_SER = LT_SER_ADDR,
+  T_ACTUAL_FILM = ACTUAL_FILM_ADDR,
+  T_PPR_MM = PPR_MM_ADDR,
+  T_JAM_RPM = JAM_RPM_ADDR,
 
 } T_ADDR;
 

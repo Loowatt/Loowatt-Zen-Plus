@@ -1,206 +1,23 @@
 #include <Arduino.h>
-#include <ArduinoBLE.h>
-#include <FlashStorage.h>
 #include <U8g2lib.h>
 #include <SPI.h>
-#include <Wire.h>
 #include <TaskScheduler.h>
-#include <WiFiNINA.h>
 #include <PubSubClient.h>
 #include <avr/dtostrf.h>
+#include "zen_config.h"
+#include"ble_data.h"
 #include "Button.h"
-#include "loos_type.h"
 #include "pins.h"
-#include "i2c.h"
+
 #include <string.h>
 #include "Sodaq_wdt.h"
-
-typedef struct
-{
-  boolean isValid;
-  char ssid[20];
-} WifiSSIDStore;
-
-typedef struct 
-{
-  boolean isValid;
-  char password[20];
-} WifiPassStore;
-
-typedef struct 
-{
-  boolean isValid;
-  char token[500];
-} TokenPassStore;
-
-
-bool ShowWifi = false;
-bool isWifiOn = false;
-int WifiConfig;
-
-
-FlashStorage(wifi_config_store, bool); 
-
-FlashStorage(ssid_flash_store, WifiSSIDStore);
-FlashStorage(pass_flash_store, WifiPassStore);
-FlashStorage(token_flash_store, TokenPassStore);
-
-int FlushDuration = 1500;
-int NewFlushDuration;
-FlashStorage(flush_duration_store, int);
-
-
-bool isBleOn = false;
-
-BLEDevice central;
-
-BLEService BLEWifi("19B10000-E8F2-537E-4F6C-D104768A1214"); // BLE LED Service
-BLEStringCharacteristic ssidCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", 12, 128);
-BLEStringCharacteristic passwordCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1215", 12, 128);
-BLEStringCharacteristic flushCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1216", 12, 128);  //flush duration  (1000) (1500) (2000)
-BLEStringCharacteristic tokenCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1217", 12, 128); //film length 8m,16m
-
-
-void blePeripheralConnectHandler(BLEDevice central)
-{
-
-  Serial.print("Connected event, central: ");
-  Serial.println(central.address());
-
-
-}
-
-void blePeripheralDisconnectHandler(BLEDevice central)
-{
-
-  Serial.print("disconnected event, central: ");
-  Serial.println(central.address());
-}
-
-
-void ssidCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
-{
-  WifiSSIDStore wifi_store; 
-  Serial.print("Characteristic event, written: ");
-
-  if(ssidCharacteristic.value())
-  {
-    Serial.println(ssidCharacteristic.value());
-
-    ssidCharacteristic.value().toCharArray(wifi_store.ssid, ssidCharacteristic.valueSize());
-    wifi_store.isValid = true;
-
-    ssid_flash_store.write(wifi_store);
-
-  } 
-  else
-  {
-   
-  }
-}
-
-void passCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
-{
-  WifiPassStore wifi_store; 
-  Serial.print("Characteristic event, written: ");
-
-  if(passwordCharacteristic.value())
-  {
-    Serial.println(passwordCharacteristic.value());
-
-    passwordCharacteristic.value().toCharArray(wifi_store.password, passwordCharacteristic.valueSize());
-    wifi_store.isValid = true;
-
-    pass_flash_store.write(wifi_store);
-
-  } 
-  else
-  {
-
-  }
-}
-
-void tokenCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
-{
-  TokenPassStore token_store;
-
-  Serial.print("Characteristic event, written: ");
-
-  if(tokenCharacteristic.value())
-  {
-    Serial.println(tokenCharacteristic.value());
-    tokenCharacteristic.value().toCharArray(token_store.token, tokenCharacteristic.valueSize());
-    token_store.isValid = true;
-
-    token_flash_store.write(token_store);
-
-  } 
-  else
-  {
-
-  }
-}
-
-void flushCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
-{
-
-  Serial.print("Characteristic event, written: ");
-
-  if(flushCharacteristic.value())
-  {
-    Serial.println(flushCharacteristic.value());
-    NewFlushDuration = flushCharacteristic.value().toInt();
-    Serial.print("NewFlushDuration ");
-    Serial.println(NewFlushDuration);
-     
-    flush_duration_store.write(NewFlushDuration);
-
-  } 
-  else
-  {
-
-  }
-}
-
-
 
 
 #define SEL_PRESS 3000
 
-#define WIFISSID "Loowatt123"  //SKYIMQXN
-#define PASSWORD "Loowatt123"  //Pm622PsNgdxD
-#define TOKEN "BBFF-wmfg8rMZ0ER962RBOGmJpCdTWB75l1"
 
 const char * WifiSSID = WIFISSID;
 const char * WifiPass = PASSWORD;
-const char * WifiToken = TOKEN;
-
-/*
-Pod F1 - BBFF-ispRoe1u1rAcw4MqDygsY9wgAsoEws
-Pod F2 - BBFF-QyruaMiqLvnUdIZT0fEy762fL0Z9gD
-Pod F3 - BBFF-YI76KK72y8VT6Isi1rwIObbekXS9dV
-Pof F4 - BBFF-WP6PBUJbXexjrv3dTqXdhNTicPXojh
-
-
-Toilet 1- BBFF-patudE0sOdTZatRnUihai4MypSfB28  
-Toilet 2- BBFF-qte6ng9nuKC7IVLurLoULJvm3nqQ44
-Toilet 3- BBFF-tQiPMhdZAQ7RJ6PH08ld0x5xLLeUoW 
-
-Toilet 4- BBFF-4NxLEewovlEuMKBVOL3z5Hpdwzomut
-Toilet 5- BBFF-puh0ETQPz7uIKWlwloQ4tiLs4eflfS
-Toilet 6- BBFF-B9tOxf7wRt5qOFDlfluzG76UdhkSJ7
-
-Toilet 7- BBFF-kxzZ5eoGeJCtyYdjREdiumIxKoRBSK
-Toilet 8- BBFF-u4RYmThRIDoWif6WyFVGT7Z3hFHb1R
-Toilet 9- BBFF-pDmMmH8I7KE1pxOeWlGgNK2W9UHQIR
-
-
-Test Unit 123 - BBFF-aBsNfySRXeRJICKo4TXf6WjDRcjJ4j
-
-Test Unit 125 - BBFF-RqTIKigU6wwypXiHpuLULbbMrcVVmG
-
-Zen Demo Unit - BBFF-wmfg8rMZ0ER962RBOGmJpCdTWB75l1
-*/
 
 
 #define MQTT_CLIENT_NAME "ubidotclient"
@@ -215,18 +32,20 @@ char mqttBroker[] = "industrial.api.ubidots.com";
 WiFiClient wifi;
 PubSubClient client(wifi);
 
+#define MQTT_FILM_PACKET_SIZE 1024
+
 #define MQTT_FILM_LEFT_LABEL "fil"
 #define MQTT_PERCENTAGE_LABEL "per"
-#define MQTT_STATE_LABEL "sta"
+#define MQTT_STATE_LABEL "state"
 #define MQTT_JAM_LABEL "jam"
-#define MQTT_REFILL_LABEL "Refill"
+#define MQTT_REFILL_LABEL "liner"
 #define MQTT_LT_JAM_LABEL "jam"
 #define MQTT_LT_SERVICE_LABEL "srv"
 #define MQTT_LT_FILM_LABEL "fil"
 #define MQTT_LT_FLUSHES_LABEL "flu"
 
-#define MQTT_toilet_type "demo"  //change to toilet
-#define MQTT_sealing_unit "s" //change to SU
+#define MQTT_toilet_type "toilet"  //change to toilet
+#define MQTT_sealing_unit "su" //change to SU
 
 Button btn_up(BTN_UP);
 Button btn_down(BTN_DOWN);
@@ -235,23 +54,21 @@ Button btn_mode(BTN_MEN);
 Button btn_flush(BTN_FLUSH);
 Button btn_rear(BTN_REAR);
 
-const unsigned long MAX_FILM_COUNT = 216000;
-unsigned long PREVIOUS_FILM_COUNT;
-float actual_film_length_mm = 16000.0;
-float usable_film_length_m = 13.5;
 
 T_MenuState MenuState = ME_INITIALISING;
 
 T_TwoBytesData UID_REG;
 T_StatusByte STATUS_REG;
-T_FourBytesData_Signed FILM_LEFT_REG;
+//T_FourBytesData_Signed FILM_LEFT_REG;
 T_MotorControlByte MOTORCTRL_REG;
+
 
 //eeprom data
 T_FourBytesData LT_FLUSHES;
 T_TwoBytesData LT_BLOCKAGES;
 T_TwoBytesData LT_SERVICES;
 T_FourBytesData LT_FILM_USED;
+
 
 char MAC_ID_STR[14];
 
@@ -260,6 +77,7 @@ unsigned short backendReadShort(T_ADDR ADDR);
 signed long backendReadLong(T_ADDR ADDR);
 
 void backendWriteByte(T_ADDR ADDR, byte REG);
+void backendWriteTwoBytes(T_ADDR ADDR, T_TwoBytesData REG);
 void backendWriteFourBytes(T_ADDR ADDR, T_FourBytesData_Signed REG);
 
 U8G2_ST7565_NHD_C12864_F_4W_HW_SPI u8g2(U8G2_R2, LCD_CS, LCD_DC, LCD_RESET);
@@ -304,9 +122,8 @@ Task lcdUpdateTask(20, TASK_FOREVER, &lcdUpdate);
 
 Task DisconnectionTask(7200000, TASK_FOREVER, &disconnect);     // 7200000 - 2  hours 
 Task ReconnectionTask(300000, TASK_FOREVER, &reconnect);        //600000 -   10 mins  //  5min -  300000
-Task SendingDataTask(600000, TASK_FOREVER, &sent_data);          //600000 -   10 mins  //  1min -  60000
-Task SendingLTDataTask(3600000, TASK_FOREVER, &lifetime_data);   //3600000 -  1  hour  //  2min -  120000
-
+Task SendingDataTask(60000, TASK_FOREVER, &sent_data);          //600000 -   10 mins  //  1min -  60000
+Task SendingLTDataTask(120000, TASK_FOREVER, &lifetime_data);   //3600000 -  1  hour  //  2min -  120000
 
 
 Scheduler runner;
@@ -330,6 +147,7 @@ void BluetoothAction()
       delay(1000);
       ReconnectionTask.disable();
       SendingDataTask.disable();
+      DisconnectionTask.disable();
       SendingLTDataTask.disable();
       pollMenuEventTask.disable();
       MenuActionTask.disable();
@@ -342,14 +160,22 @@ void BluetoothAction()
         while (1);
       }
 
-      
+    char BLEName[15];
+    String stringOne = String(MQTT_toilet_type);
+    String stringTwo = String(UID_REG.u_twobytes, HEX);
+    String stringThree =  String(stringOne + stringTwo);
+    stringThree.toCharArray(BLEName,15);
+    //Serial.println(BLEName);
 
-    BLE.setLocalName(MQTT_toilet_type);
+    BLE.setLocalName(BLEName);
     BLE.setAdvertisedService(BLEWifi);
     BLEWifi.addCharacteristic(ssidCharacteristic);
     BLEWifi.addCharacteristic(passwordCharacteristic);
     BLEWifi.addCharacteristic(flushCharacteristic);
-    BLEWifi.addCharacteristic(tokenCharacteristic);
+    BLEWifi.addCharacteristic(maxfilmCharacteristic);
+    BLEWifi.addCharacteristic(actualfilmCharacteristic);
+    BLEWifi.addCharacteristic(pprfilmCharacteristic);
+    BLEWifi.addCharacteristic(jamCharacteristic);
     BLE.addService(BLEWifi);
 
     BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
@@ -359,9 +185,13 @@ void BluetoothAction()
     passwordCharacteristic.setEventHandler(BLEWritten, passCharacteristicWritten);
 
     flushCharacteristic.setEventHandler(BLEWritten, flushCharacteristicWritten);
-    tokenCharacteristic.setEventHandler(BLEWritten, tokenCharacteristicWritten);
 
-    BLE.advertise();
+    maxfilmCharacteristic.setEventHandler(BLEWritten, maxfilmCharacteristicWritten);
+    actualfilmCharacteristic.setEventHandler(BLEWritten, actualfilmCharacteristicWritten);
+    pprfilmCharacteristic.setEventHandler(BLEWritten, pprfilmCharacteristicWritten);
+    jamCharacteristic.setEventHandler(BLEWritten, jamCharacteristicWritten);
+
+    BLE.advertise();        
     Serial.println("Waiting for connections");
 }
 
@@ -888,14 +718,13 @@ void lcdUpdate()
 
 void setup()
 {
+
   Wire.setClock(400000);
   Wire.begin();
   Serial.begin(115200);
 
   static WifiSSIDStore ssid_store;
   static WifiPassStore pass_store;
-  static TokenPassStore token_store;
-
 
   pinMode(FLUSH_LED, OUTPUT);
   pinMode(BTN_REAR, INPUT_PULLUP);
@@ -906,12 +735,15 @@ void setup()
   ssid_store = ssid_flash_store.read();
   pass_store = pass_flash_store.read();
   NewFlushDuration = flush_duration_store.read();
-  //Serial.println(WifiConfig);
-  delay(4000);
+  NewMAX_FILM_COUNT = film_flash_store.read();
+  NewActual_FILM = actualfilm_flash_store.read();
+  NewPPR = ppr_flash_store.read();
+  Serial.println(WifiConfig);
+  delay(3000);
 
   if(NewFlushDuration == NULL)
   {
-    FlushDuration = 1500;
+    FlushDuration = FlushDuration;
   }
 
   else
@@ -919,8 +751,39 @@ void setup()
     FlushDuration = NewFlushDuration;
   }
 
-  Serial.print("Flush duration is: ");
-  Serial.println(FlushDuration);
+  if(NewMAX_FILM_COUNT == NULL)
+  {
+    NewMAX_FILM_COUNT = MAX_FILM_COUNT;
+  }
+
+  else
+  {
+    MAX_FILM_COUNT = NewMAX_FILM_COUNT;
+  }
+
+
+
+  if(NewActual_FILM == NULL)
+  {
+    NewActual_FILM = actual_film_length_mm;
+  }
+
+  else
+  {
+    actual_film_length_mm = NewActual_FILM;
+  }
+
+
+  if(NewPPR == NULL)
+  {
+    NewPPR = mm_ppr;
+  }
+
+  else
+  {
+    mm_ppr = NewPPR;
+  }
+  
 
 
   if(ssid_store.isValid)
@@ -936,14 +799,6 @@ void setup()
     Serial.print("new wifi ssid set is: ");
     Serial.println(pass_store.password);
     WifiPass = pass_store.password;
-  }
-
-  if(token_store.isValid)
-  {
-    Serial.print("Token is: ");
-    Serial.println(token_store.token);
-    WifiToken = token_store.token;
-
   }
 
   if(WifiConfig == 1)
@@ -972,10 +827,24 @@ void setup()
 
   }
 
+  Serial.print("MAX_FILM_COUNT is: ");
+  Serial.println(MAX_FILM_COUNT);
+
+  Serial.print("Flush duration is: ");
+  Serial.println(FlushDuration);
+
+  delay(2000);
 
   UID_REG.u_twobytes = backendReadShort(T_UID);
   STATUS_REG.u_status = backendReadByte(T_STATUS);
   FILM_LEFT_REG.u_fourbytes = backendReadLong(T_FILM_LEFT);
+  STATUS_REG.u_status = backendReadByte(T_STATUS);
+
+  if (STATUS_REG.s_status.state == S_RUN)
+  {
+    digitalWrite(FLUSH_LED, HIGH);
+  }
+
 
   analogWrite(LCD_LED, 255);
 
@@ -1021,22 +890,16 @@ void setup()
   //runner.addTask(autoflushTask);
   //runner.addTask(checkerTask);
 
-
-  ReconnectionTask.enable();
-  SendingDataTask.enable();
   pollMenuEventTask.enable();
-  SendingLTDataTask.enable();
-  
 
-  if(WiFi.status() != WL_CONNECTED)
+  if(WifiConfig == 1)
   {
-    ReconnectionTask.disable();
-    SendingDataTask.disable();
-    SendingLTDataTask.disable();
+    ReconnectionTask.enable();
+    SendingDataTask.enable();
+    SendingLTDataTask.enable();
   }
 
-  //sodaq_wdt_enable(WDT_PERIOD_4X);
-
+  sodaq_wdt_enable(WDT_PERIOD_4X);
 }
 
 void loop()
@@ -1044,13 +907,13 @@ void loop()
   
   runner.execute();
 
-    // if (sodaq_wdt_flag) 
-    // {
-    // sodaq_wdt_flag = false;
-    // sodaq_wdt_reset();
-    // Serial.println("WDT interrupt has been triggered");
+    if (sodaq_wdt_flag) 
+    {
+    sodaq_wdt_flag = false;
+    sodaq_wdt_reset();
+    Serial.println("WDT interrupt has been triggered");
     
-    // }
+    }
 
     if(isBleOn)
     {
@@ -1084,12 +947,24 @@ void normal_frame(byte state, signed long film_left)
   //u8g2.setFont(u8g2_font_9x15B_mf);
   //u8g2.drawStr(30, 10, "Loowatt");
 
+  if(WifiConfig)
+  {
+    u8g2.setFont(u8g2_font_6x10_mf);
+    u8g2.drawStr(32,8,"Zen Connect");
+  }
+  else
+  {
+    u8g2.setFont(u8g2_font_6x10_mf);
+    u8g2.drawStr(40,8,"Zen Plus");
+  }
+  
+
   u8g2.setFont(u8g2_font_6x12_tr);
 
-  u8g2.drawStr(8, 30, "REFILL:");
+  u8g2.drawStr(8, 30, "LINER:");
   u8g2.drawStr(90, 30, "%");
 
-  float mm_film_count = film_left / usable_film_length_m; // arduino can't handle big division it seems
+  float mm_film_count = film_left / mm_ppr; // arduino can't handle big division it seems
   float percentage = (mm_film_count / actual_film_length_mm) * 100.0;
 
   if (percentage > 100)
@@ -1126,12 +1001,23 @@ void refill_frame(signed long film_left)
   //u8g2.setFont(u8g2_font_9x15B_mf);
   //u8g2.drawStr(30, 10, "Loowatt");
 
+  if(WifiConfig)
+  {
+    u8g2.setFont(u8g2_font_6x10_mf);
+    u8g2.drawStr(32,8,"Zen Connect");
+  }
+  else
+  {
+    u8g2.setFont(u8g2_font_6x10_mf);
+    u8g2.drawStr(40,8,"Zen Plus");
+  }
+
   u8g2.setFont(u8g2_font_6x12_tr);
 
-  u8g2.drawStr(8, 30, "REFILL:");
+  u8g2.drawStr(8, 30, "LINER:");
   u8g2.drawStr(90, 30, "%");
 
-  float mm_film_count = film_left / usable_film_length_m; // arduino can't handle big division it seems
+  float mm_film_count = film_left / mm_ppr; // arduino can't handle big division it seems
   float percentage = (mm_film_count / actual_film_length_mm) * 100.0;
 
   int percentage_int = int(percentage);
@@ -1151,11 +1037,11 @@ void refill_frame(signed long film_left)
 
   u8g2.setFont(u8g2_font_6x12_tr);
   u8g2.drawStr(20, 45, "MODE:");
-  u8g2.drawStr(65, 45, "REFILL");
+  u8g2.drawStr(65, 45, "LINER");
 
   u8g2.setFont(u8g2_font_6x12_me);
 
-  u8g2.drawStr(8, 60, "CHANGE REFILL? [OK]");
+  u8g2.drawStr(8, 60, "CHANGE LINER? [OK]");
 
   u8g2.sendBuffer();
 }
@@ -1178,7 +1064,7 @@ void su_frame()
   */
 
   u8g2.setCursor(0, 25);
-  u8g2.print("T-FILM:");
+  u8g2.print("L-FILM:");
   u8g2.setCursor(65, 25);
   float T_FILM = LT_FILM_USED.u_fourbytes/150;
   u8g2.print(T_FILM, 2);
@@ -1189,7 +1075,7 @@ void su_frame()
   u8g2.print(LT_SERVICES.u_twobytes, DEC);
 
   u8g2.setCursor(5, 55);
-  u8g2.print("T-BLK:");
+  u8g2.print("L-BLK:");
   u8g2.setCursor(65, 55);
   u8g2.print(LT_BLOCKAGES.u_twobytes, DEC);
 
@@ -1205,10 +1091,10 @@ void jam_frame(signed long film_left)
 
   u8g2.setFont(u8g2_font_6x12_tr);
 
-  u8g2.drawStr(8, 30, "REFILL:");
+  u8g2.drawStr(8, 30, "LINER:");
   u8g2.drawStr(90, 30, "%");
 
-  float mm_film_count = film_left / usable_film_length_m; // arduino can't handle big division it seems
+  float mm_film_count = film_left / mm_ppr; // arduino can't handle big division it seems
   float percentage = (mm_film_count / actual_film_length_mm) * 100.0;
 
   int percentage_int = int(percentage);
@@ -1289,10 +1175,10 @@ void wifi_frame()
 {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_7x13B_mf);
-  u8g2.drawStr(25, 10, "Wifi Setting");
+  u8g2.drawStr(25, 10, "WiFi Setting");
   u8g2.setFont(u8g2_font_6x12_tr);
   u8g2.drawStr(5, 25, "Do you want to turn");
-  u8g2.drawStr(35, 35, "WIFI ON ?");
+  u8g2.drawStr(40, 35, "WiFi ON ?");
   u8g2.setFont(u8g2_font_6x12_tr);
   u8g2.drawStr(5, 55, "[NO]");
   u8g2.drawStr(95, 55, "[YES]");
@@ -1305,11 +1191,11 @@ void wifi_yes_frame()
 {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_7x13B_mf);
-  u8g2.drawStr(25, 10, "Wifi Setting");
+  u8g2.drawStr(25, 10, "WiFi Setting");
   u8g2.setFont(u8g2_font_6x12_tr);
-  u8g2.drawStr(20, 30, "Wifi will be ON");
+  u8g2.drawStr(20, 30, "WiFi will be ON");
   u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(3, 55, "After Rebooting");
+  u8g2.drawStr(3, 55, "Please Reboot Device");
   u8g2.sendBuffer();
 }
 
@@ -1317,9 +1203,9 @@ void wifi_no_frame()
 {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_7x13B_mf);
-  u8g2.drawStr(25, 10, "Wifi Setting");
+  u8g2.drawStr(25, 10, "WiFi Setting");
   u8g2.setFont(u8g2_font_6x12_tr);
-  u8g2.drawStr(20, 30, "Wifi is now OFF");
+  u8g2.drawStr(20, 30, "WiFi is now OFF");
   u8g2.setFont(u8g2_font_6x10_tr);
   u8g2.drawStr(3, 55, "Please Reboot Device");
   u8g2.sendBuffer();
@@ -1364,7 +1250,7 @@ void disconnect()
   if (WiFi.status() != WL_CONNECTED)
   {
     WiFi.begin(WifiSSID, WifiPass);
-    delay(1000);
+    delay(2000);
   }
 
     client.setServer(mqttBroker, 1883);
@@ -1402,7 +1288,7 @@ void reconnect()
     else
     {
       WiFi.disconnect();
-      DisconnectionTask.enable();
+      DisconnectionTask.disable();
       ReconnectionTask.disable();
       SendingDataTask.disable();
       SendingLTDataTask.disable();
@@ -1419,9 +1305,9 @@ void reconnect()
 
     if (pingResult >= 0)
     {
-      z = 0;
       Serial.print("SUCCESS! RTT = ");
-      if (client.connect(MQTT_CLIENT_NAME, WifiToken, ""))
+      z = 0;
+      if (client.connect(MQTT_CLIENT_NAME, TOKEN, ""))
       {
         Serial.println("Handshake with MQTT completed");
         SendingDataTask.enableIfNot();
@@ -1446,8 +1332,6 @@ void reconnect()
 
           DisconnectionTask.enableIfNot();
           DisconnectionTask.forceNextIteration();
-          SendingDataTask.enableIfNot();
-          SendingLTDataTask.enableIfNot();
           
         }
         
@@ -1467,10 +1351,13 @@ void reconnect()
       {
           WiFi.disconnect();
           ReconnectionTask.disable();
-          DisconnectionTask.enable();
           SendingDataTask.disable();
           SendingLTDataTask.disable();
-  
+          DisconnectionTask.enable();
+          
+          //DisconnectionTask.enableIfNot();
+          //DisconnectionTask.forceNextIteration();
+
       }
     }
   }
@@ -1479,7 +1366,7 @@ void reconnect()
 
 void sent_data()
 {
-  float mm_film_count = FILM_LEFT_REG.u_fourbytes / usable_film_length_m; // arduino can't handle big division it seems
+  float mm_film_count = FILM_LEFT_REG.u_fourbytes / mm_ppr; // arduino can't handle big division it seems
   int percentage = (mm_film_count / actual_film_length_mm) * 100.0;
 
   /* Sending Context Data
